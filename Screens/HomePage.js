@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
+import BottomMenu from './BottomMenu'; // Importe o BottomMenu
 
 export default function HomePage() {
   const [region, setRegion] = useState(null);
@@ -9,7 +10,6 @@ export default function HomePage() {
 
   useEffect(() => {
     (async () => {
-      // Solicita permissão de localização
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permissão de localização negada', 'Permita o acesso à localização para usar o mapa');
@@ -17,7 +17,6 @@ export default function HomePage() {
         return;
       }
 
-      // Obtém a localização atual
       let location = await Location.getCurrentPositionAsync({});
       setRegion({
         latitude: location.coords.latitude,
@@ -25,11 +24,10 @@ export default function HomePage() {
         latitudeDelta: 0.015,
         longitudeDelta: 0.0121,
       });
-      setLoading(false); // Define que o carregamento terminou
+      setLoading(false);
     })();
   }, []);
 
-  // Exibe um indicador de carregamento enquanto a localização está sendo obtida
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -52,6 +50,9 @@ export default function HomePage() {
           description="Av. Luciano das Neves, 2418 - Centro de Vila Velha"
         />
       </MapView>
+
+      {/* Adicione o BottomMenu na parte inferior */}
+      <BottomMenu />
     </View>
   );
 }
