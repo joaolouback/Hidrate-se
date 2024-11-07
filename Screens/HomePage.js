@@ -18,16 +18,18 @@ export default function HomePage() {
     {
       id: 1,
       coords: { latitude: -20.351593, longitude: -40.298139 },
-      title: "Ponto de Água",
-      location: "Av. Luciano das Neves, 2418 - Centro de Vila Velha",
-      description: "Localizado ao lado do parque central.",
+      title: "Ponto de Água - Shopping",
+      location: "Shopping Vila Velha",
+      description: "Ao lado dos banheiros, após a loja da Vivo.",
+      rating: "5,0",
     },
     {
       id: 2,
       coords: { latitude: -20.351402, longitude: -40.296156 },
-      title: "Ponto de Água no Shopping",
-      location: "Shopping Vila Velha",
-      description: "Ao lado dos banheiros, após a loja da Vivo.",
+      title: "Ponto de Água - Crossfit Crown",
+      location: "No lado de dentro do Crossfit",
+      description: "Shopping Vila Velha",
+      rating: "4,8",
     },
     {
       id: 3,
@@ -35,6 +37,7 @@ export default function HomePage() {
       title: "Ponto de Água - UVV Unidade Acadêmica 3",
       location: "Unidade Acadêmica 3, Térreo",
       description: "Virando à direita no térreo. Há mais um bebedouro a cada andar no corredor.",
+      rating: "5,0",
     },
     {
       id: 4,
@@ -42,6 +45,7 @@ export default function HomePage() {
       title: "Ponto de Água - Entrada Unidade Acadêmica 3",
       location: "Entrada próxima ao shopping",
       description: "Na ponta da quadra de exercícios físicos, lado de fora.",
+      rating: "4,9",
     },
   ];
 
@@ -82,8 +86,9 @@ export default function HomePage() {
       {showCard && selectedPonto && (
         <View style={styles.infoCard}>
           <Text style={styles.cardTitle}>{selectedPonto.title}</Text>
-          <Text style={styles.locationText}>{selectedPonto.location}</Text>
+          <Text style={styles.locationText}>Localização: {selectedPonto.location}</Text>
           <Text style={styles.descriptionText}>{selectedPonto.description}</Text>
+          <Text style={styles.ratingText}>Avaliação: {selectedPonto.rating} ⭐</Text>
           <TouchableOpacity style={styles.navigateButton} onPress={() => abrirGoogleMaps(selectedPonto.coords)}>
             <Text style={styles.navigateButtonText}>Vá até o ponto de água ➔</Text>
           </TouchableOpacity>
@@ -106,13 +111,13 @@ export default function HomePage() {
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Feedbacks:</Text>
-            <View style={styles.feedback}>
-              <Text style={styles.feedbackUser}>Usuário: Maria</Text>
-              <Text style={styles.feedbackRating}>Avaliação: 5,0/5,0 ⭐</Text>
-              <Text style={styles.feedbackComment}>
-                Comentário: "Excelente ponto de água! Fácil de encontrar e com água fresca e limpa."
-              </Text>
-            </View>
+            {selectedPonto && selectedPonto.feedbacks && selectedPonto.feedbacks.map((feedback, index) => (
+              <View key={index} style={styles.feedback}>
+                <Text style={styles.feedbackUser}>Usuário: {feedback.user}</Text>
+                <Text style={styles.feedbackRating}>Avaliação: {feedback.rating} ⭐</Text>
+                <Text style={styles.feedbackComment}>Comentário: "{feedback.comment}"</Text>
+              </View>
+            ))}
             <TouchableOpacity style={styles.closeButton} onPress={() => setShowFeedbackModal(false)}>
               <Text style={styles.closeButtonText}>Fechar</Text>
             </TouchableOpacity>
@@ -162,6 +167,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     textAlign: 'center',
+    marginBottom: 5,
+  },
+  ratingText: {
+    fontSize: 14,
+    color: '#333',
+    textAlign: 'center',
+    fontWeight: 'bold',
     marginBottom: 10,
   },
   navigateButton: {
