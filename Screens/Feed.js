@@ -142,7 +142,7 @@ export default function Feed() {
         data={posts}
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: 100 }} // Espaço extra para evitar que o botão fique escondido
+        contentContainerStyle={{ paddingBottom: 120 }}
       />
       <TouchableOpacity style={styles.addButton} onPress={() => setModalVisible(true)}>
         <Text style={styles.addButtonText}>Adicionar Publicação</Text>
@@ -193,12 +193,15 @@ export default function Feed() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0F51A4', // Fundo azul
   },
   postContainer: {
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#ffffff', // Cor dos cards branco
     borderRadius: 10,
     padding: 15,
-    marginBottom: 15,
+    marginBottom: 1,
+    marginTop: 15,
+    marginHorizontal: 10, // Adiciona espaçamento nas laterais
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -217,7 +220,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   description: {
-    fontSize: 14,
+    fontSize: 16, // Aumentei o tamanho do texto da descrição
     marginBottom: 5,
   },
   user: {
@@ -235,15 +238,15 @@ const styles = StyleSheet.create({
     right: 10,
   },
   addButton: {
-    backgroundColor: '#007BFF',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
+    backgroundColor: '#3EB174', // Cor verde especificada
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    borderRadius: 50,
     alignItems: 'center',
     position: 'absolute',
-    bottom: 20,
-    left: '50%',
-    transform: [{ translateX: -75 }],
+    bottom: 100, // Subi o botão um pouco
+    right: 20,
+    elevation: 5,
   },
   addButtonText: {
     color: '#fff',
