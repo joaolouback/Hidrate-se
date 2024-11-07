@@ -22,6 +22,10 @@ export default function HomePage() {
       location: "Shopping Vila Velha",
       description: "Ao lado dos banheiros, após a loja da Vivo.",
       rating: "5,0",
+      feedbacks: [
+        { user: "Maria", rating: "5,0", comment: "Ótimo ponto, fácil de encontrar e com água fresca!" },
+        { user: "Carlos", rating: "4,8", comment: "Muito útil para quem frequenta o shopping." },
+      ],
     },
     {
       id: 2,
@@ -30,6 +34,9 @@ export default function HomePage() {
       location: "No lado de dentro do Crossfit",
       description: "Shopping Vila Velha",
       rating: "4,8",
+      feedbacks: [
+        { user: "Ana", rating: "4,5", comment: "Boa localização, mas poderia ter mais sinalização." },
+      ],
     },
     {
       id: 3,
@@ -38,6 +45,10 @@ export default function HomePage() {
       location: "Unidade Acadêmica 3, Térreo",
       description: "Virando à direita no térreo. Há mais um bebedouro a cada andar no corredor.",
       rating: "5,0",
+      feedbacks: [
+        { user: "João", rating: "5,0", comment: "Perfeito para estudantes, água sempre fresca." },
+        { user: "Beatriz", rating: "4,9", comment: "Excelente localização e fácil acesso!" },
+      ],
     },
     {
       id: 4,
@@ -46,6 +57,9 @@ export default function HomePage() {
       location: "Entrada próxima ao shopping",
       description: "Na ponta da quadra de exercícios físicos, lado de fora.",
       rating: "4,9",
+      feedbacks: [
+        { user: "Lucas", rating: "4,9", comment: "Ótimo ponto, principalmente para quem pratica esportes." },
+      ],
     },
   ];
 
