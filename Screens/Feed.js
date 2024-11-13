@@ -1,140 +1,195 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, Alert, Modal } from 'react-native';
+import { StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, FlatList, TextInput, Alert, Modal } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import BottomMenu from './BottomMenu';
+import { db, auth } from '../services/Firebase.js';
+import { collection, addDoc, getDocs, updateDoc, doc, increment, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+
+const getUserName = async (userId) => {
+  const userDoc = await getDoc(doc(db, 'users', userId));
+  return userDoc.exists() ? userDoc.data().nome : 'Anônimo';
+};
 
 export default function Feed() {
-  const [posts, setPosts] = useState([
-    {
-      id: '1',
-      title: 'Economia de Água no Dia a Dia',
-      summary: '5 Maneiras Simples de Economizar Água em Casa',
-      description: 'Pequenas mudanças de hábitos podem fazer grande diferença no consumo de água. Descubra como você pode economizar água em tarefas simples do cotidiano.',
-      image: 'Imagem: Pingar água em um contador de gotas.',
-      user: 'João',
-      likes: 0,
-      dislikes: 0,
-      userLiked: false,
-      userDisliked: false,
-    },
-    {
-      id: '2',
-      title: 'Alimentos Que Ajudam na Hidratação',
-      summary: 'Frutas Ricas em Água que Ajudam na Hidratação do Corpo',
-      description: 'Além de beber água, o consumo de frutas como melancia e pepino pode ser um aliado para manter o corpo hidratado durante todo o dia.',
-      image: 'Imagem: Prato com melancia, pepino e laranja.',
-      user: 'Paulo',
-      likes: 0,
-      dislikes: 0,
-      userLiked: false,
-      userDisliked: false,
-    },
-  ]);
+  const [posts, setPosts] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [newPostTitle, setNewPostTitle] = useState('');
   const [newPostSummary, setNewPostSummary] = useState('');
   const [newPostDescription, setNewPostDescription] = useState('');
 
-  const handleLike = (id) => {
-    setPosts((prevPosts) =>
-      prevPosts.map((post) => {
-        if (post.id === id) {
-          if (post.userLiked) {
-            return { ...post, likes: post.likes - 1, userLiked: false };
-          } else {
-            return {
-              ...post,
-              likes: post.userLiked ? post.likes : post.likes + 1,
-              dislikes: post.userDisliked ? post.dislikes - 1 : post.dislikes,
-              userLiked: true,
-              userDisliked: false,
-            };
-          }
-        }
-        return post;
-      })
-    );
+  // Função para buscar posts do Firestore
+  const fetchPosts = async () => {
+    const postsArray = [];
+    const querySnapshot = await getDocs(collection(db, 'posts'));
+    querySnapshot.forEach((doc) => {
+      postsArray.push({ id: doc.id, ...doc.data() });
+    });
+    setPosts(postsArray);
   };
 
-  const handleDislike = (id) => {
-    setPosts((prevPosts) =>
-      prevPosts.map((post) => {
-        if (post.id === id) {
-          if (post.userDisliked) {
-            return { ...post, dislikes: post.dislikes - 1, userDisliked: false };
-          } else {
-            return {
-              ...post,
-              dislikes: post.userDisliked ? post.dislikes : post.dislikes + 1,
-              likes: post.userLiked ? post.likes - 1 : post.likes,
-              userDisliked: true,
-              userLiked: false,
-            };
-          }
-        }
-        return post;
-      })
-    );
-  };
+  // useEffect para buscar os posts na primeira renderização
+  useEffect(() => {
+    fetchPosts();
+  }, []);
 
-  const addNewPost = () => {
+  const addNewPost = async () => {
     if (newPostTitle && newPostSummary && newPostDescription) {
+      const currentUser = auth.currentUser;
+      if (!currentUser) return;
+
+      const userName = await getUserName(currentUser.uid);
+
       const newPost = {
-        id: Math.random().toString(),
         title: newPostTitle,
         summary: newPostSummary,
         description: newPostDescription,
         image: '',
-        user: 'Você',
+        user: userName,
+        userId: currentUser.uid,
         likes: 0,
         dislikes: 0,
-        userLiked: false,
-        userDisliked: false,
+        likedBy: [],
+        dislikedBy: [],
+        createdAt: new Date(),
       };
-      setPosts((prevPosts) => [newPost, ...prevPosts]);
-      setNewPostTitle('');
-      setNewPostSummary('');
-      setNewPostDescription('');
-      setModalVisible(false);
+
+      try {
+        await addDoc(collection(db, 'posts'), newPost);
+        setNewPostTitle('');
+        setNewPostSummary('');
+        setNewPostDescription('');
+        setModalVisible(false);
+        fetchPosts();
+      } catch (error) {
+        console.error("Erro ao adicionar publicação: ", error);
+      }
     } else {
       Alert.alert('Erro', 'Por favor, preencha todos os campos para adicionar uma publicação.');
     }
   };
 
-  const deletePost = (id) => {
-    Alert.alert(
-      'Apagar Publicação',
-      'Tem certeza de que deseja apagar esta publicação?',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Apagar', onPress: () => setPosts((prevPosts) => prevPosts.filter((post) => post.id !== id)) },
-      ]
-    );
+  const handleLike = async (id) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    const postRef = doc(db, 'posts', id);
+    const postDoc = await getDoc(postRef);
+
+    if (postDoc.exists()) {
+      const postData = postDoc.data();
+      const hasLiked = postData.likedBy?.includes(currentUser.uid);
+      const hasDisliked = postData.dislikedBy?.includes(currentUser.uid);
+
+      try {
+        if (hasLiked) {
+          await updateDoc(postRef, {
+            likes: increment(-1),
+            likedBy: arrayRemove(currentUser.uid)
+          });
+        } else {
+          await updateDoc(postRef, {
+            likes: increment(1),
+            likedBy: arrayUnion(currentUser.uid),
+            // Remover dislike se houver
+            dislikes: hasDisliked ? increment(-1) : postData.dislikes,
+            dislikedBy: hasDisliked ? arrayRemove(currentUser.uid) : postData.dislikedBy
+          });
+        }
+        fetchPosts();
+      } catch (error) {
+        console.error("Erro ao atualizar like: ", error);
+      }
+    }
   };
 
-  const renderItem = ({ item }) => (
-    <View style={styles.postContainer}>
-      <Text style={styles.title}>{item.title}</Text>
-      <Text style={styles.summary}>Título: {item.summary}</Text>
-      <Text style={styles.description}>Resumo: {item.description}</Text>
-      <Text style={styles.user}>Usuário: {item.user}</Text>
-      <View style={styles.iconContainer}>
-        <TouchableOpacity onPress={() => handleLike(item.id)}>
-          <FontAwesome name="thumbs-up" size={24} color={item.userLiked ? "green" : "gray"} />
-          <Text>{item.likes}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => handleDislike(item.id)} style={{ marginLeft: 20 }}>
-          <FontAwesome name="thumbs-down" size={24} color={item.userDisliked ? "red" : "gray"} />
-          <Text>{item.dislikes}</Text>
-        </TouchableOpacity>
+  const handleDislike = async (id) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+
+    const postRef = doc(db, 'posts', id);
+    const postDoc = await getDoc(postRef);
+
+    if (postDoc.exists()) {
+      const postData = postDoc.data();
+      const hasLiked = postData.likedBy?.includes(currentUser.uid);
+      const hasDisliked = postData.dislikedBy?.includes(currentUser.uid);
+
+      try {
+        if (hasDisliked) {
+          await updateDoc(postRef, {
+            dislikes: increment(-1),
+            dislikedBy: arrayRemove(currentUser.uid)
+          });
+        } else {
+          await updateDoc(postRef, {
+            dislikes: increment(1),
+            dislikedBy: arrayUnion(currentUser.uid),
+            // Remover like se houver
+            likes: hasLiked ? increment(-1) : postData.likes,
+            likedBy: hasLiked ? arrayRemove(currentUser.uid) : postData.likedBy
+          });
+        }
+        fetchPosts();
+      } catch (error) {
+        console.error("Erro ao atualizar dislike: ", error);
+      }
+    }
+  };
+
+  const deletePost = async (id, userId) => {
+    const currentUser = auth.currentUser;
+    if (currentUser && currentUser.uid === userId) {
+      Alert.alert(
+        'Apagar Publicação',
+        'Tem certeza de que deseja apagar esta publicação?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Apagar', onPress: async () => {
+              try {
+                await deleteDoc(doc(db, 'posts', id));
+                fetchPosts();
+              } catch (error) {
+                console.error("Erro ao excluir publicação: ", error);
+              }
+            }
+          }
+        ]
+      );
+    } else {
+      Alert.alert('Erro', 'Você não tem permissão para apagar esta publicação.');
+    }
+  };
+
+  const renderItem = ({ item }) => {
+    const currentUser = auth.currentUser;
+    const hasLiked = item.likedBy?.includes(currentUser?.uid);
+    const hasDisliked = item.dislikedBy?.includes(currentUser?.uid);
+
+    return (
+      <View style={styles.postContainer}>
+        <Text style={styles.title}>{item.title}</Text>
+        <Text style={styles.summary}>Título: {item.summary}</Text>
+        <Text style={styles.description}>Resumo: {item.description}</Text>
+        <Text style={styles.user}>Usuário: {item.user}</Text>
+        <View style={styles.iconContainer}>
+          <TouchableOpacity onPress={() => handleLike(item.id)}>
+            <FontAwesome name="thumbs-up" size={24} color={hasLiked ? "green" : "gray"} />
+            <Text>{item.likes}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => handleDislike(item.id)} style={{ marginLeft: 20 }}>
+            <FontAwesome name="thumbs-down" size={24} color={hasDisliked ? "red" : "gray"} />
+            <Text>{item.dislikes}</Text>
+          </TouchableOpacity>
+        </View>
+        {currentUser && currentUser.uid === item.userId && (
+          <TouchableOpacity onPress={() => deletePost(item.id, item.userId)} style={styles.deleteIcon}>
+            <FontAwesome name="trash" size={24} color="red" />
+          </TouchableOpacity>
+        )}
       </View>
-      {item.user === 'Você' && (
-        <TouchableOpacity onPress={() => deletePost(item.id)} style={styles.deleteIcon}>
-          <FontAwesome name="trash" size={24} color="red" />
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -193,15 +248,15 @@ export default function Feed() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0F51A4', // Fundo azul
+    backgroundColor: '#0F51A4',
   },
   postContainer: {
-    backgroundColor: '#ffffff', // Cor dos cards branco
+    backgroundColor: '#ffffff',
     borderRadius: 10,
     padding: 15,
     marginBottom: 1,
     marginTop: 15,
-    marginHorizontal: 10, // Adiciona espaçamento nas laterais
+    marginHorizontal: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -220,7 +275,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   description: {
-    fontSize: 16, // Aumentei o tamanho do texto da descrição
+    fontSize: 16,
     marginBottom: 5,
   },
   user: {
@@ -238,13 +293,13 @@ const styles = StyleSheet.create({
     right: 10,
   },
   addButton: {
-    backgroundColor: '#3EB174', // Cor verde especificada
+    backgroundColor: '#3EB174',
     paddingVertical: 15,
     paddingHorizontal: 30,
     borderRadius: 50,
     alignItems: 'center',
     position: 'absolute',
-    bottom: 100, // Subi o botão um pouco
+    bottom: 100,
     right: 20,
     elevation: 5,
   },
