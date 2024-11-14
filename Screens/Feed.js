@@ -1,10 +1,9 @@
-import { StyleSheet } from 'react-native';
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, FlatList, TextInput, Alert, Modal } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, FlatList, TextInput, Alert, Modal, ScrollView, Image } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
 import BottomMenu from './BottomMenu';
 import { db, auth } from '../services/Firebase.js';
-import { collection, addDoc, getDocs, updateDoc, doc, increment, getDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, addDoc, getDocs, updateDoc, doc, increment, getDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
 
 const getUserName = async (userId) => {
   const userDoc = await getDoc(doc(db, 'users', userId));
@@ -17,8 +16,8 @@ export default function Feed() {
   const [newPostTitle, setNewPostTitle] = useState('');
   const [newPostSummary, setNewPostSummary] = useState('');
   const [newPostDescription, setNewPostDescription] = useState('');
+  const [newPostImage, setNewPostImage] = useState('');
 
-  // Função para buscar posts do Firestore
   const fetchPosts = async () => {
     const postsArray = [];
     const querySnapshot = await getDocs(collection(db, 'posts'));
@@ -28,7 +27,6 @@ export default function Feed() {
     setPosts(postsArray);
   };
 
-  // useEffect para buscar os posts na primeira renderização
   useEffect(() => {
     fetchPosts();
   }, []);
@@ -44,7 +42,7 @@ export default function Feed() {
         title: newPostTitle,
         summary: newPostSummary,
         description: newPostDescription,
-        image: '',
+        image: newPostImage, // Adiciona a URL da imagem ao documento
         user: userName,
         userId: currentUser.uid,
         likes: 0,
@@ -59,6 +57,7 @@ export default function Feed() {
         setNewPostTitle('');
         setNewPostSummary('');
         setNewPostDescription('');
+        setNewPostImage('');
         setModalVisible(false);
         fetchPosts();
       } catch (error) {
@@ -69,7 +68,7 @@ export default function Feed() {
     }
   };
 
-  const handleLike = async (id) => {
+  const handleLike = async (id, postOwnerId) => {
     const currentUser = auth.currentUser;
     if (!currentUser) return;
 
@@ -91,10 +90,18 @@ export default function Feed() {
           await updateDoc(postRef, {
             likes: increment(1),
             likedBy: arrayUnion(currentUser.uid),
-            // Remover dislike se houver
             dislikes: hasDisliked ? increment(-1) : postData.dislikes,
             dislikedBy: hasDisliked ? arrayRemove(currentUser.uid) : postData.dislikedBy
           });
+          if (postOwnerId !== currentUser.uid) {
+            await addDoc(collection(db, 'notifications'), {
+              userId: postOwnerId,
+              message: `${currentUser.displayName || 'Um usuário'} curtiu sua postagem.`,
+              type: 'like',
+              createdAt: new Date(),
+              icon: 'like',
+            });
+          }
         }
         fetchPosts();
       } catch (error) {
@@ -125,7 +132,6 @@ export default function Feed() {
           await updateDoc(postRef, {
             dislikes: increment(1),
             dislikedBy: arrayUnion(currentUser.uid),
-            // Remover like se houver
             likes: hasLiked ? increment(-1) : postData.likes,
             likedBy: hasLiked ? arrayRemove(currentUser.uid) : postData.likedBy
           });
@@ -145,7 +151,8 @@ export default function Feed() {
         'Tem certeza de que deseja apagar esta publicação?',
         [
           { text: 'Cancelar', style: 'cancel' },
-          { text: 'Apagar', onPress: async () => {
+          {
+            text: 'Apagar', onPress: async () => {
               try {
                 await deleteDoc(doc(db, 'posts', id));
                 fetchPosts();
@@ -167,13 +174,16 @@ export default function Feed() {
     const hasDisliked = item.dislikedBy?.includes(currentUser?.uid);
 
     return (
-      <View style={styles.postContainer}>
+      <View style={[styles.postContainer, { marginTop: 20 }]}>
         <Text style={styles.title}>{item.title}</Text>
-        <Text style={styles.summary}>Título: {item.summary}</Text>
-        <Text style={styles.description}>Resumo: {item.description}</Text>
+        {item.image ? (
+          <Image source={{ uri: item.image }} style={styles.postImage} />
+        ) : null}
+        <Text style={styles.summary}>{item.summary}</Text>
+        <Text style={styles.description}>{item.description}</Text>
         <Text style={styles.user}>Usuário: {item.user}</Text>
         <View style={styles.iconContainer}>
-          <TouchableOpacity onPress={() => handleLike(item.id)}>
+          <TouchableOpacity onPress={() => handleLike(item.id, item.userId)}>
             <FontAwesome name="thumbs-up" size={24} color={hasLiked ? "green" : "gray"} />
             <Text>{item.likes}</Text>
           </TouchableOpacity>
@@ -209,27 +219,44 @@ export default function Feed() {
         visible={modalVisible}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
+        <ScrollView contentContainerStyle={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Nova Publicação</Text>
+
+            <Text style={styles.label}>Título da Postagem:</Text>
             <TextInput
               style={styles.input}
-              placeholder="Título"
+              placeholder="Digite o título"
               value={newPostTitle}
               onChangeText={setNewPostTitle}
             />
+
+            <Text style={styles.label}>Assunto:</Text>
             <TextInput
               style={styles.input}
-              placeholder="Resumo"
+              placeholder="Digite o assunto"
               value={newPostSummary}
               onChangeText={setNewPostSummary}
             />
+
+            <Text style={styles.label}>Descrição da Postagem:</Text>
             <TextInput
-              style={styles.input}
-              placeholder="Descrição"
+              style={styles.textArea}
+              placeholder="Digite a descrição"
               value={newPostDescription}
               onChangeText={setNewPostDescription}
+              multiline={true}
+              numberOfLines={4}
             />
+
+            <Text style={styles.label}>URL da Imagem:</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Digite a URL da imagem"
+              value={newPostImage}
+              onChangeText={setNewPostImage}
+            />
+
             <TouchableOpacity style={styles.modalAddButton} onPress={addNewPost}>
               <Text style={styles.modalAddButtonText}>Publicar</Text>
             </TouchableOpacity>
@@ -237,7 +264,7 @@ export default function Feed() {
               <Text style={styles.modalCancelButtonText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       </Modal>
 
       <BottomMenu />
@@ -254,8 +281,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 10,
     padding: 15,
-    marginBottom: 1,
-    marginTop: 15,
+    marginBottom: 15,
     marginHorizontal: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -264,24 +290,34 @@ const styles = StyleSheet.create({
     elevation: 3,
     position: 'relative',
   },
+  postImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 10,
+    marginVertical: 10,
+  },
   title: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 5,
+    color: '#333',
   },
   summary: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     marginBottom: 5,
+    color: '#555',
   },
   description: {
     fontSize: 16,
-    marginBottom: 5,
+    marginBottom: 10,
+    color: '#777',
   },
   user: {
     fontSize: 14,
     fontStyle: 'italic',
     marginBottom: 10,
+    color: '#999',
   },
   iconContainer: {
     flexDirection: 'row',
@@ -309,9 +345,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   modalContainer: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 40,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
@@ -321,20 +358,39 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 20,
     textAlign: 'center',
+    color: '#333',
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 5,
+    color: '#333',
   },
   input: {
     backgroundColor: '#f9f9f9',
-    padding: 10,
+    padding: 12,
     borderRadius: 5,
-    marginBottom: 10,
+    marginBottom: 15,
+    fontSize: 16,
+    color: '#333',
+  },
+  textArea: {
+    backgroundColor: '#f9f9f9',
+    padding: 12,
+    borderRadius: 5,
+    marginBottom: 15,
+    fontSize: 16,
+    color: '#333',
+    height: 100,
+    textAlignVertical: 'top',
   },
   modalAddButton: {
     backgroundColor: '#4CAF50',
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 5,
     alignItems: 'center',
     marginTop: 10,
@@ -342,15 +398,19 @@ const styles = StyleSheet.create({
   modalAddButtonText: {
     color: '#fff',
     fontWeight: 'bold',
+    fontSize: 18,
   },
   modalCancelButton: {
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 5,
     alignItems: 'center',
     marginTop: 10,
+    borderColor: '#FF6347',
+    borderWidth: 1,
   },
   modalCancelButtonText: {
     color: '#FF6347',
     fontWeight: 'bold',
+    fontSize: 18,
   },
 });
