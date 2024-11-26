@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Alert, Text, TouchableOpacity, Modal, Linking, Image } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
+import { collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
+import { db } from '../services/Firebase'; // Certifique-se de ajustar o caminho
 import BottomMenu from './BottomMenu';
 
 export default function HomePage() {
@@ -13,6 +15,7 @@ export default function HomePage() {
   const [showCard, setShowCard] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [selectedPonto, setSelectedPonto] = useState(null);
+  const [feedbacks, setFeedbacks] = useState([]); // Para armazenar os feedbacks do Firestore
 
   const pontosDeAgua = [
     {
@@ -21,11 +24,6 @@ export default function HomePage() {
       title: "Ponto de Água - Shopping",
       location: "Shopping Vila Velha",
       description: "Ao lado dos banheiros, após a loja da Vivo.",
-      rating: "5,0",
-      feedbacks: [
-        { user: "Maria", rating: "5,0", comment: "Ótimo ponto, fácil de encontrar e com água fresca!" },
-        { user: "Carlos", rating: "4,8", comment: "Muito útil para quem frequenta o shopping." },
-      ],
     },
     {
       id: 2,
@@ -33,10 +31,6 @@ export default function HomePage() {
       title: "Ponto de Água - Crossfit Crown",
       location: "No lado de dentro do Crossfit",
       description: "Shopping Vila Velha",
-      rating: "4,8",
-      feedbacks: [
-        { user: "Ana", rating: "4,5", comment: "Boa localização, mas poderia ter mais sinalização." },
-      ],
     },
     {
       id: 3,
@@ -44,11 +38,6 @@ export default function HomePage() {
       title: "Ponto de Água - UVV Unidade Acadêmica 3",
       location: "Unidade Acadêmica 3, Térreo",
       description: "Virando à direita no térreo. Há mais um bebedouro a cada andar no corredor.",
-      rating: "5,0",
-      feedbacks: [
-        { user: "João", rating: "5,0", comment: "Perfeito para estudantes, água sempre fresca." },
-        { user: "Beatriz", rating: "4,9", comment: "Excelente localização e fácil acesso!" },
-      ],
     },
     {
       id: 4,
@@ -56,12 +45,34 @@ export default function HomePage() {
       title: "Ponto de Água - Entrada Unidade Acadêmica 3",
       location: "Entrada próxima ao shopping",
       description: "Na ponta da quadra de exercícios físicos, lado de fora.",
-      rating: "4,9",
-      feedbacks: [
-        { user: "Lucas", rating: "4,9", comment: "Ótimo ponto, principalmente para quem pratica esportes." },
-      ],
     },
   ];
+
+  // Função para normalizar strings
+  const normalizeString = (str) => str.trim().toLowerCase();
+
+  // Função para buscar feedbacks do Firestore
+  const fetchFeedbacks = async (pointName) => {
+    try {
+      const normalizedPointName = normalizeString(pointName); // Normalizar o nome do ponto
+      const q = query(
+        collection(db, 'feedbacks'),
+        where('pointName', '==', normalizedPointName), // Filtrar pelo nome normalizado
+        orderBy('timestamp', 'desc'), // Ordenar pelo mais recente
+        limit(2) // Limitar a 2 feedbacks
+      );
+
+      const querySnapshot = await getDocs(q);
+      const feedbackData = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setFeedbacks(feedbackData); // Atualiza os feedbacks
+    } catch (error) {
+      console.error('Erro ao buscar feedbacks:', error);
+      Alert.alert('Erro', 'Não foi possível carregar os feedbacks.');
+    }
+  };
 
   const abrirGoogleMaps = (coords) => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${coords.latitude},${coords.longitude}`;
@@ -69,6 +80,12 @@ export default function HomePage() {
       Alert.alert('Erro', 'Não foi possível abrir o Google Maps.');
     });
   };
+
+  useEffect(() => {
+    if (selectedPonto) {
+      fetchFeedbacks(selectedPonto.title); // Buscar feedbacks pelo título normalizado
+    }
+  }, [selectedPonto]);
 
   return (
     <View style={styles.container}>
@@ -102,7 +119,6 @@ export default function HomePage() {
           <Text style={styles.cardTitle}>{selectedPonto.title}</Text>
           <Text style={styles.locationText}>Localização: {selectedPonto.location}</Text>
           <Text style={styles.descriptionText}>{selectedPonto.description}</Text>
-          <Text style={styles.ratingText}>Avaliação: {selectedPonto.rating} ⭐</Text>
           <TouchableOpacity style={styles.navigateButton} onPress={() => abrirGoogleMaps(selectedPonto.coords)}>
             <Text style={styles.navigateButtonText}>Vá até o ponto de água ➔</Text>
           </TouchableOpacity>
@@ -124,14 +140,17 @@ export default function HomePage() {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Feedbacks:</Text>
-            {selectedPonto && selectedPonto.feedbacks && selectedPonto.feedbacks.map((feedback, index) => (
-              <View key={index} style={styles.feedback}>
-                <Text style={styles.feedbackUser}>Usuário: {feedback.user}</Text>
-                <Text style={styles.feedbackRating}>Avaliação: {feedback.rating} ⭐</Text>
-                <Text style={styles.feedbackComment}>Comentário: "{feedback.comment}"</Text>
-              </View>
-            ))}
+            <Text style={styles.modalTitle}>Feedbacks para {selectedPonto?.title}:</Text>
+            {feedbacks.length > 0 ? (
+              feedbacks.map((feedback, index) => (
+                <View key={index} style={styles.feedback}>
+                  <Text style={styles.feedbackRating}>Avaliação: {feedback.rating} ⭐</Text>
+                  <Text style={styles.feedbackComment}>Comentário: "{feedback.comment}"</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.noFeedbackText}>Nenhum feedback disponível.</Text>
+            )}
             <TouchableOpacity style={styles.closeButton} onPress={() => setShowFeedbackModal(false)}>
               <Text style={styles.closeButtonText}>Fechar</Text>
             </TouchableOpacity>
@@ -183,13 +202,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 5,
   },
-  ratingText: {
-    fontSize: 14,
-    color: '#333',
-    textAlign: 'center',
-    fontWeight: 'bold',
-    marginBottom: 10,
-  },
   navigateButton: {
     backgroundColor: '#4CAF50',
     paddingVertical: 10,
@@ -225,10 +237,6 @@ const styles = StyleSheet.create({
   feedback: {
     marginBottom: 15,
   },
-  feedbackUser: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
   feedbackRating: {
     fontSize: 14,
     color: '#888',
@@ -250,5 +258,11 @@ const styles = StyleSheet.create({
   pontoAguaIcon: {
     width: 42,
     height: 42,
+  },
+  noFeedbackText: {
+    fontSize: 16,
+    color: '#888',
+    textAlign: 'center',
+    marginVertical: 10,
   },
 });

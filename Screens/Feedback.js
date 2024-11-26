@@ -9,6 +9,8 @@ import {
   Alert,
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import { db } from '../services/Firebase'; // Certifique-se de ajustar o caminho
+import { collection, addDoc } from 'firebase/firestore';
 import BottomMenu from './BottomMenu';
 
 export default function Feedback() {
@@ -30,16 +32,32 @@ export default function Feedback() {
       point.location.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const submitFeedback = () => {
+  const submitFeedback = async () => {
     if (!selectedPoint || selectedRating === 0 || !comment.trim()) {
       Alert.alert('Erro', 'Por favor, preencha todos os campos antes de enviar o feedback.');
       return;
     }
-    Alert.alert('Obrigado!', `Seu feedback sobre "${selectedPoint.name}" foi enviado com sucesso.`);
-    setSelectedRating(0);
-    setSelectedPoint(null);
-    setComment('');
-    setSearchQuery('');
+
+    try {
+      // Salvar os dados no Firestore
+      await addDoc(collection(db, 'feedbacks'), {
+        pointName: selectedPoint.name,
+        pointLocation: selectedPoint.location,
+        rating: selectedRating,
+        comment: comment,
+        timestamp: new Date().toISOString(),
+      });
+
+      Alert.alert('Obrigado!', `Seu feedback sobre "${selectedPoint.name}" foi enviado com sucesso.`);
+      // Resetar os estados
+      setSelectedRating(0);
+      setSelectedPoint(null);
+      setComment('');
+      setSearchQuery('');
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível enviar o feedback. Tente novamente mais tarde.');
+      console.error('Erro ao enviar feedback:', error);
+    }
   };
 
   const renderPoint = ({ item }) => (
@@ -107,7 +125,7 @@ export default function Feedback() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flex:1,
     backgroundColor: '#0F51A4',
     padding: 20,
   },
