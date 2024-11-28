@@ -20,9 +20,9 @@ export default function Feedback() {
   const [searchQuery, setSearchQuery] = useState('');
   const [points, setPoints] = useState([
     { id: 1, name: 'Ponto de Água - Shopping', location: 'Shopping Vila Velha' },
-    { id: 2, name: 'Ponto de Água - Crossfit', location: 'Shopping Vila Velha' },
-    { id: 3, name: 'Ponto de Água - Unidade Acadêmica 3', location: 'Prédio azul UVV' },
-    { id: 4, name: 'Ponto de Água - Universidade', location: 'Campus UVV' },
+    { id: 2, name: 'Ponto de Água - Crossfit Crown', location: 'Shopping Vila Velha' },
+    { id: 3, name: 'Ponto de Água - UVV Unidade Acadêmica 3', location: 'Unidade Acadêmica 3, Térreo' },
+    { id: 4, name: 'Ponto de Água - Entrada Unidade Acadêmica 3', location: 'Entrada próxima ao shopping' },
   ]);
 
   // Função para filtrar os pontos de água com base na barra de pesquisa
@@ -41,8 +41,8 @@ export default function Feedback() {
     try {
       // Salvar os dados no Firestore
       await addDoc(collection(db, 'feedbacks'), {
-        pointName: selectedPoint.name,
-        pointLocation: selectedPoint.location,
+        pointName: selectedPoint.name, // Nome ajustado para ser igual ao HomePage
+        pointLocation: selectedPoint.location, // Localização ajustada para ser igual ao HomePage
         rating: selectedRating,
         comment: comment,
         timestamp: new Date().toISOString(),
@@ -75,8 +75,6 @@ export default function Feedback() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Deixe seu Feedback</Text>
-
       <Text style={styles.label}>Buscar ponto de água:</Text>
       <TextInput
         style={styles.searchBar}
@@ -125,7 +123,7 @@ export default function Feedback() {
 
 const styles = StyleSheet.create({
   container: {
-    flex:1,
+    flex: 1,
     backgroundColor: '#0F51A4',
     padding: 20,
   },
